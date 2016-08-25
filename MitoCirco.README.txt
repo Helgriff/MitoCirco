@@ -1,0 +1,205 @@
+MITOCIRCO README (Needs updating!!)
+------------------------------
+The MitoCirco pipeline is for the high-throughput analysis of Illumina Fastq format, paired-end, mitochondrial DNA (mtDNA) sequence reads on a Linux Cluster (under OGS/GE). 
+It automates the analysis from raw sequence reads through to files of annotated variants, heteroplasmic sites, haplogroup predictions and locations of Nuclear Mitochondrial sequences (Numts). 
+Alignment of sequence reads is against both a full genome reference including mtDNA and an mtDNA specific reference sequence, thus allowing for the accurate identification of Numts. 
+The coverage depth, SNVs and Numts are also visualised in per sample Circos plots. 
+The pipeline consists of a series of bash shell scripts that package together freely available software for next generation sequence analysis with some Perl scripts. 
+Experiment, user and system specific variables are modified in the initial Launch script that submits multiple job scripts per sample. 
+The summary result files can be easily imported into a spreadsheet program (e.g. Excel), making them accessible to those without knowledge of Linux. 
+
+Version 0.0.1 of this pipeline was designed for the analysis of targeted mtDNA sequence.
+Version 0.0.2 provided some additional capability to handle Exome and Genome sequences.
+Version 0.0.3 can perform high-throughput analysis of any Targeted, Exome or Genome, paired-end Illumina sequence reads, although some issues remain. 
+Current issues with running Genome sequences is there are too many mtDNA-nuclear chromosome links to view at a meaningful resolution in a single Circos plot. 
+Also for Exomes and Genomes, there are too many nuclear variants to visualise in circos.
+
+The pipeline consists of the following stages:
+- Duplicate sequence read removal (FastUniq)
+- Sequence read quality analysis (FastQC)
+- Alignment to whole genome & mtDNA reference sequences (BWA (mem))
+- Formatting of the alignment files (Samtools/Picard)
+- Single-Nucleotide Variant (SNV) calling (Varscan2)
+- Visualisation (per sample) of read depth, SNVs and Numts (Perl scripts + Circos)
+- Annotation and mtDNA haplogroup calling (Perl scripts + MitoMaster web API)
+- Annotation of heteroplasmic SNVs (Perl scripts + MitoMaster web API)
+- Coverage summaries of target read depth (Perl scripts)
+- Location of Numts (Perl scripts)
+- Additional variant (SNV & short InDel) calling (Bcftools & GATK)
+
+
+REQUIRED SOFTWARE (and version used in testing)
+-----------------------------
+FastUniq (v.1.1)
+FastQC (v0.10.1)
+BWA (v0.7.4)
+Samtools (v0.1.18)/Bcftools
+Java (v.7.0.13)
+Picard (v.1.85)
+Varscan2 (v.2.3.1)
+Circos (v.0.66)
+Perl (v0.1.16 compatible with Circos (v.0.66))
+(GATK & GATKqueue (v.3.3.0))
+
+
+MITOCIRCO PROGRAMS
+--------------------------------
+Launch_MitoCirco.sh: The top level shell script where all parameter settings are altered and when executed will qsub the following four shell scripts.
+1. MitoCirco1_AlignVars.sh    
+2. MitoCirco2_MitoMaster.sh   
+3. MitoCirco3_Summary.sh                    
+4. MitoCirco4_MoreVarCalls.sh
+
+Perl scripts run from within the shell scripts: 
+Get_Numts_from_sam_links_Files.pl
+Coverage_from_pileup_MitoCirco.pl
+Haplogrep_inFile.pl
+Format_mtDNAPileups_into_oneFile.pl
+Make_circos_conf_file2.pl
+MitoMaster_api2.pl
+Format_mtDNA_sam_links_into_oneFile.pl
+Make_circos_conf_file.pl
+MitoMaster_api.pl
+Format_mtDNAvcfs_into_oneFile.pl
+Format_Pileups_into_oneFile_transposed.pl
+
+Circos Config files:
+axis.conf
+colors_fonts_patterns.conf
+housekeeping.conf
+ideogram.conf
+ideogram2.conf
+image.conf
+karyotype.conf
+karyotype2.conf
+ticks.conf
+ticks2.conf
+karyotype.human.txt
+MitoComplex.txt
+MitoGenes_tile.txt
+MitoGenes.txt
+MitoGenesNuclear1598.txt
+NCBI_14400_Freq.txt
+
+ADDITIONAL FILES REQUIRED
+--------------------------------------
+1. Genome fasta reference (e.g. human hg38.fa).
+2. Mitochondrial genome fasta reference (e.g. rCRS.fa).
+3. Indexed BWA, Samtools and GATK genome and mtDNA references, generated as described in the software specific documentation (e.g. hg38.fai etc.).
+4. Target chromosome/gene coordinates in bed format (e.g. rCRS_genes_genome.txt & rCRS_genes_genome_plusNuclearChroms.txt are included).
+
+
+INSTALLATION
+-------------------
+Download the MitoCirco package from github/sourceforge(?) and gunzip.
+
+
+RUNNING MITOCIRCO
+-----------------------------
+The starting point for the analysis is a collection (one or more sets) of paired-end fastq Illumina sequence read files, saved in a single directory. 
+
+Modify the "/Pipeline_MitoCirco/Launch_MitoCirco.sh" file so that all the settings (directory pathways, files, software modules See below) are specific to the current analysis and the Linux cluster on which the analysis is to be executed.
+
+Start the analysis by typing the full file path to the "/Pipeline_MitoCirco/Launch_MitoCirco.sh" script in a shell window. This will then move each fastq file pair into a sample specific directory and automatically "qsub" the "MitoCirco[1-4]_*.sh" scripts to the job queue of the Linux cluster for each fastq file pair.
+
+SETTINGS (directory pathways and files):
+
+Batch_ID: Any name/ID that describes the batch of sequences being run through the MitoCirco pipeline (e.g. "Batch1");
+
+TYPE: Either "Target", "Exome" or "Genome", to implement pipeline options specific to the analysis of targeted mtDNA, Exome or Genome sequences;
+
+Fastqfile_prefix: The prefix string at the start of fastq files. All fastq files must share an initial prefix text string (e.g. "Filename_");
+FQ_suffix1: The suffix string for read-pair 1 fastq files ("_R1_001.fastq.gz");
+FQ_suffix2: The suffix string for read-pair 2 fastq files ("_R2_001.fastq.gz");
+If the suffix of Fastq sequence files differ from "_R1_001.fastq.gz" and "_R2_001.fastq.gz", the 'dir' array pattern match in the "Launch_MitoCirco.sh" script also needs to be altered accordingly.
+                          
+SAMPLE_PATH: full pathway to directory containing gzipped fastq files (e.g. "/users/directory/mtDNA_fastq_files3");
+
+SCRIPT_PATH: full pathway to directory containing all MitoCirco scripts (e.g. "/users/directory/Pipeline_MitoCirco");
+
+REFDIR= full pathway to directory containing fasta whole genome reference (e.g. "/users/directory/hg38");
+REFDIR2= full pathway to directory containing fasta mitochondrial DNA reference (e.g. "/users/directory/Pipeline_MitoCirco/rCRS");
+REF_FA= whole genome fasta reference file (e.g. "hg38.fa");
+REF_FA2= mitochondrial DNA fasta reference file (e.g. "rCRS.fasta").
+N.B. sequence names in both the fasta mtDNA and genome reference files should be chrM and chr1-22,X,Y, otherwise perl regular expressions need to be altered;
+
+Q: the minimum phred based per read alignment and per sequence base quality for a base to be used in variant call and coverage stats (e.g. 30);
+
+PCNT_HOMO: the percentage above which to call a variant homoplasmic (e.g. 90). The homoplasmic reference threshold is then set as 100-$PCNT_HOMO; 
+
+TARGETS: The full pathway and filename of a "bed" format file of target/gene/etc. positions for the coverage script. The positions should be non-overlapping because the script will only output depths once for each base (e.g. "/users/directory/Pipeline_MitoCirco/rCRS_genes_genome_plusNuclearChroms.txt");
+
+DBSNPVCF: GATK hg38 dbSNP vcf (hg38 doesn't currently work!) (e.g. "/users/directory/hg38/GATK_bundle/human_9606_b142_hg38.vcf");
+
+SETTINGS (HPCluster specific software modules and program calls):
+FAU: e.g. "apps/fastuniq/1.1/gcc-4.4.6";
+FQC: e.g. "apps/fastqc/0.10.1";
+BWA: e.g. "apps/bwa/0.7.4/gcc-4.4.6";
+SMT: e.g. "apps/samtools/0.1.18/gcc-4.4.6";
+JAV: e.g. "apps/java/7.0.13/noarch";
+VS2: e.g. "apps/varscan/2.3.1/noarch";
+CIR: e.g. "apps/circos/0.66/perl-5.16.1";
+PCD: e.g. "apps/picard/1.85/noarch";
+GTK: e.g. "apps/gatk/3.3.0/noarch";
+GTQ: e.g. "apps/gatkqueue/3.3.0/noarch";
+PCP: Pathway to picard jar files (e.g. "/opt/gridware/pkg/apps/picard/1.85/noarch/java")                                                                               
+VSP: Pathway and name of varscan2 jar file (e.g. "/opt/gridware/pkg/apps/varscan/2.3.1/noarch/java/VarScan.v.2.3.1.jar");
+GKP: Pathway to GATK jar files (e.g. "/opt/gridware/pkg/apps/gatk+queue/3.3.0/noarch");
+
+Expected program calls are as follows:
+"fastuniq", "fastqc", "bwa", "samtools", "bcftools", "circos" and "perl"
+If system HPCluster module specific program calls are different, they will need to be modified accordingly in "MitoCirco[1-4]*.sh" scripts.
+
+
+MITOCIRCO OUTPUTS
+-----------------------------
+A series of output directories will be generated in each per sample directory (dup_free_bam, coverage, Circos, varscan2, Samtools_bcftools, GATK). 
+Total summary files of coverage, annotated SNVs, heteroplasmy and Numts will be written to the original, top-level analysis folder.
+
+FastQC_dupfree: A directory containing the FastQC output for each fastq file;
+
+Summary Files for all Samples:
+"Coverage_MeanBases_chrM_BatchID.txt2": Per sample mean read depth and number of bases of the mtDNA reference covered 1-fold and 100-fold for both the mtDNA specific and whole genome alignments;
+"Coverage_MeanBases_chrAll_BatchID.txt2": Per sample mean read depth and number of bases of the Genome reference covered 1-fold and 100-fold for both the mtDNA specific and whole genome alignments;
+"Coverage_perTarget_BatchID.txt2": Per sample mean read depth and number of bases of each target/gene/chromosome covered 1-fold and 100-fold for both the mtDNA specific and whole genome alignments;
+"Heteroplasmy_Summary_BatchID.txt2": Number of mtDNA bases per sample with heteroplasmic variant calls;
+"Haplogrep_In_BatchID.txt2": Input file for "Haplogrep" haplogroup analysis of all samples;
+"MitoMaster_Out_Q20_BatchID.txt2": Per sample "MitoMaster" analysis output, showing annotated variants and haplogroup predictions using only homoplasmic variants;
+"MitoMaster_Out_Heteroplasmies_BatchID.txt": Per sample "MitoMaster" analysis output, showing annotation for heteroplasmic variants;
+"Number_hg38_nuclear_reads_BatchID.txt": The number of sequence reads per sample that aligned to the whole Genome reference;
+"Numts_perSample_BatchID.txt": All per sample mtDNA-nuclear positions where reads aligned to both mtDNA and whole genome references;
+"Numts_Summary_BatchID.txt": Total counts for sequence batch of mtDNA-nuclear positions where reads aligned to both mtDNA and whole genome references;  
+"All_pileups_transposed_chrM.txt": per mtDNA base read depth for each sample;
+"All_hets_transposed_chrM.txt": per mtDNA base percentage variant heteroplasmy for each sample;
+
+Per Sample directories containing analysis outputs:
+dup_free_bam                           
+coverage
+Circos
+varscan2
+Samtools_bcftools
+GATK
+
+Per Sample files within per sample directories:
+SampleID_R1_001.fastq.gz
+SampleID_R2_001.fastq.gz  
+SampleID_hg38nc.reads
+
+
+ADDITIONAL NOTES
+--------------------------
+Example Fastq files are included in the directory "/Pipeline_MitoCirco/Test_Data/" for Target and Exome sequences. 
+GATK analysis is not currently supported for the human hg38 genome build. 
+Perl scripts within the pipeline will need to be modified for it to be used with organisms other than human (e.g. chromosome names and numbers, Circos karyotype file and "hs" chromosome identifiers).
+
+
+CONTACTS AND CITATION
+----------------------------------
+Dr Helen Griffin (helen.griffin@ncl.ac.uk)
+(Submitted to Bioinformatics February 2016?)
+
+VERSION UPDATES
+------------------------
+Version 0.0.1 18 December 2015
+Version 0.0.2 04 January 2016
+Version 0.0.3 07 January 2016
